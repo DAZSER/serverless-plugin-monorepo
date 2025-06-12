@@ -1,5 +1,5 @@
 {
-  "name": "@sparticuz/serverless-plugin-monorepo",
+  "name": "@dazser/serverless-plugin-monorepo",
   "version": "1.0.0",
   "repository": "github:dazser/serverless-plugin-monorepo",
   "description": "Serverless plugin to allow use inside a JS monorepo",
