@@ -1,4 +1,4 @@
-const { ModuleResolutionKind } = require("typescript");
-module.exports = {
+const config = {
   singleQuote: true,
 };
+export default config;
