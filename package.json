@@ -1,8 +1,8 @@
 {
-  "name": "@dazser/serverless-plugin-monorepo",
+  "name": "@sparticuz/serverless-plugin-monorepo",
   "version": "1.0.0",
-  "repository": "github:dazser/serverless-plugin-monorepo",
-  "description": "Serverless plugin to allow use inside a JS monorepo",
+  "repository": "github:sparticuz/serverless-plugin-monorepo",
+  "description": "OSS Serverless plugin to allow use inside a JS monorepo",
   "keywords": [
     "serverless",
     "osls",
@@ -11,8 +11,8 @@
     "workspaces"
   ],
   "author": "Kyle McNally",
-  "homepage": "https://github.com/dazser/serverless-plugin-monorepo",
-  "bugs": "https://github.com/dazser/serverless-plugin-monorepo/issues",
+  "homepage": "https://github.com/sparticuz/serverless-plugin-monorepo",
+  "bugs": "https://github.com/sparticuz/serverless-plugin-monorepo/issues",
   "license": "MPL-2.0",
   "main": "lib/index.js",
   "type": "module",
