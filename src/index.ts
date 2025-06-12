@@ -16,9 +16,12 @@ function getNodeModulePaths(p: string): string[] {
 /** Creates a symlink. Ignore errors if symlink exists or package exists. */
 async function link(target: string, f: string, type: fs.SymlinkType) {
   await fs.ensureDir(path.dirname(f));
-  await fs.symlink(target, f, type).catch((e: unknown) => {
-    if (e.code === "EEXIST" || e.code === "EISDIR") {
-      return;
+  // eslint-disable-next-line @typescript-eslint/use-unknown-in-catch-callback-variable
+  await fs.symlink(target, f, type).catch((e: { code: string }) => {
+    if (e.code) {
+      if (e.code === "EEXIST" || e.code === "EISDIR") {
+        return;
+      }
     }
     throw e;
   });
@@ -43,10 +46,11 @@ export default class ServerlessMonoRepo {
       "package:initialize": () => void this.initialise(),
       "before:offline:start:init": () => void this.initialise(),
       "offline:start": () => void this.initialise(),
-      "deploy:function:initialize": async () => {
-        await this.clean();
-        await this.initialise();
-      },
+      "deploy:function:initialize": () =>
+        void (async () => {
+          await this.clean();
+          await this.initialise();
+        })(),
     };
 
     // Settings

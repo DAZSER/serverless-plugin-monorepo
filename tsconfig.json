@@ -1,19 +1,13 @@
 {
+  "extends": ["@tsconfig/node18/tsconfig", "@tsconfig/strictest"],
   "compilerOptions": {
-    "target": "es2017",
-    "module": "commonjs",
-    "lib": ["ESNext"],
+    "declaration": true,
     "outDir": "./lib",
     "rootDir": "./src",
-    "strict": true,
-    "noUnusedLocals": true,
-    "noFallthroughCasesInSwitch": true,
-    "moduleResolution": "node",
     "baseUrl": "./",
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "noPropertyAccessFromIndexSignature": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]
