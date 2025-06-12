@@ -1,6 +1,6 @@
-import * as fs from "fs-extra";
-import * as path from "path";
-import Serverless from "serverless";
+import fs, { type SymlinkType } from "fs-extra";
+import * as path from "node:path";
+import type Serverless from "serverless";
 
 /** Takes a path and returns all node_modules resolution paths (but not global include paths). */
 function getNodeModulePaths(p: string): string[] {
@@ -16,7 +16,7 @@ function getNodeModulePaths(p: string): string[] {
 /** Creates a symlink. Ignore errors if symlink exists or package exists. */
 async function link(target: string, f: string, type: fs.SymlinkType) {
   await fs.ensureDir(path.dirname(f));
-  await fs.symlink(target, f, type).catch((e) => {
+  await fs.symlink(target, f, type).catch((e: unknown) => {
     if (e.code === "EEXIST" || e.code === "EISDIR") {
       return;
     }
@@ -24,23 +24,25 @@ async function link(target: string, f: string, type: fs.SymlinkType) {
   });
 }
 
-/** Settings that can be specified in serverless YAML file */
-export interface ServerlessMonoRepoSettings {
-  path: string;
-  linkType: fs.SymlinkType;
+interface PackageJson {
+  name: string;
+  version: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
 }
 
 /** Plugin implementation */
-module.exports = class ServerlessMonoRepo {
-  settings: ServerlessMonoRepoSettings;
-  hooks: { [key: string]: () => void };
+export default class ServerlessMonoRepo {
+  hooks: Record<string, () => void>;
 
   constructor(private serverless: Serverless) {
     this.hooks = {
-      "package:cleanup": () => this.clean(),
-      "package:initialize": () => this.initialise(),
-      "before:offline:start:init": () => this.initialise(),
-      "offline:start": () => this.initialise(),
+      "package:cleanup": () => void this.clean(),
+      "package:initialize": () => void this.initialise(),
+      "before:offline:start:init": () => void this.initialise(),
+      "offline:start": () => void this.initialise(),
       "deploy:function:initialize": async () => {
         await this.clean();
         await this.initialise();
@@ -48,16 +50,25 @@ module.exports = class ServerlessMonoRepo {
     };
 
     // Settings
-    const custom: Partial<ServerlessMonoRepoSettings> =
-      this.serverless.service.custom?.serverlessMonoRepo ?? {};
-    this.settings = {
-      path: custom.path ?? this.serverless.config.servicePath,
-      linkType: custom.linkType ?? "junction",
-    };
-  }
-
-  log(msg: string) {
-    this.serverless.cli.log(msg);
+    serverless.configSchemaHandler.defineCustomProperties({
+      type: "object",
+      properties: {
+        monorepo: {
+          type: "object",
+          properties: {
+            path: {
+              type: "string",
+              default: this.serverless.config.servicePath,
+            },
+            linkType: {
+              type: "string",
+              enum: ["junction", "dir", "file"],
+              default: "junction",
+            },
+          },
+        },
+      },
+    });
   }
 
   async linkPackage(
@@ -85,13 +96,18 @@ module.exports = class ServerlessMonoRepo {
       path.join(toPath, path.dirname(name)),
       path.dirname(pkg),
     );
-    if ((pkg.match(/node_modules/g) || []).length <= 1 && !created.has(name)) {
+    if ((pkg.match(/node_modules/g) ?? []).length <= 1 && !created.has(name)) {
       created.add(name);
-      await link(target, path.join(toPath, name), this.settings.linkType);
+      await link(
+        target,
+        path.join(toPath, name),
+        this.serverless.service.custom.linkType as SymlinkType,
+      );
     }
 
     // Get dependencies
-    const { dependencies = {} } = require(pkg);
+    const packageData = (await fs.readJson(pkg)) as PackageJson;
+    const { dependencies = {} } = packageData;
 
     // Link all dependencies
     await Promise.all(
@@ -109,16 +125,19 @@ module.exports = class ServerlessMonoRepo {
 
   async clean() {
     // Remove all symlinks that are of form [...]/node_modules/link
-    this.log("Cleaning dependency symlinks");
+    console.log("Cleaning dependency symlinks");
 
-    type File = { f: string; s: fs.Stats };
+    interface File {
+      f: string;
+      s: fs.Stats;
+    }
 
     // Checks if a given stat result indicates a scoped package directory
     const isScopedPkgDir = (c: File) =>
       c.s.isDirectory() && c.f.startsWith("@");
 
     // Cleans all links in a specific path
-    async function clean(p: string) {
+    async function cleanAllLinks(p: string) {
       if (!(await fs.pathExists(p))) {
         return;
       }
@@ -138,7 +157,9 @@ module.exports = class ServerlessMonoRepo {
 
       // Remove all links in scoped packages
       await Promise.all(
-        contents.filter(isScopedPkgDir).map((c) => clean(path.join(p, c.f))),
+        contents
+          .filter(isScopedPkgDir)
+          .map((c) => cleanAllLinks(path.join(p, c.f))),
       );
       contents = contents.filter((c) => !isScopedPkgDir(c));
 
@@ -150,28 +171,37 @@ module.exports = class ServerlessMonoRepo {
     }
 
     // Clean node_modules
-    await clean(path.join(this.settings.path, "node_modules"));
+    await cleanAllLinks(
+      path.join(this.serverless.service.custom.path as string, "node_modules"),
+    );
   }
 
   async initialise() {
     // Read package JSON
-    const { dependencies = {} } = require(
-      path.join(this.settings.path, "package.json"),
+    const packageJsonPath = path.join(
+      this.serverless.service.custom.path as string,
+      "package.json",
     );
+    const packageJson = (await fs.readJson(packageJsonPath)) as PackageJson;
+    const { dependencies = {} } = packageJson;
 
     // Link all dependent packages
-    this.log("Creating dependency symlinks");
+    console.log("Creating dependency symlinks");
+
     const contents = new Set<string>();
     await Promise.all(
       Object.keys(dependencies).map((name) =>
         this.linkPackage(
           name,
-          this.settings.path,
-          path.join(this.settings.path, "node_modules"),
+          this.serverless.service.custom.path as string,
+          path.join(
+            this.serverless.service.custom.path as string,
+            "node_modules",
+          ),
           contents,
           [],
         ),
       ),
     );
   }
-};
+}
