@@ -16,18 +16,18 @@
   "main": "lib/index.js",
   "type": "module",
   "dependencies": {
-    "fs-extra": "^9.0.1"
+    "fs-extra": "^11.3.0"
   },
   "peerDependencies": {
-    "serverless": "1 || 2 || 3 || 4"
+    "osls": "^3.51.1"
   },
   "engines": {
     "node": ">=10"
   },
   "devDependencies": {
-    "@types/fs-extra": "^9.0.2",
+    "@types/fs-extra": "^11.0.4",
     "@types/node": "^14.18.63",
-    "@types/serverless": "^1.78.6",
+    "@types/serverless": "^3.12.27",
     "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",
     "prettier": "^3.5.3",
@@ -37,10 +37,6 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint ."
-  },
-  "resolutions": {
-    "js-yaml": "^3.13.1",
-    "minimist": "1.2.5"
   },
   "files": [
     "lib/index.js",
