@@ -1,0 +1,39 @@
+name: Create Release on Tag
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          previous_tag=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1))
+          # Generate the list of commits since the previous tag
+          changelog=$(git log $previous_tag..HEAD --oneline)
+          echo "changelog=$changelog" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          body: ${{ env.changelog }}
+          draft: false
+          prerelease: false
+          generateReleaseNotes: true
+          token: ${{ github.token }}
+          owner: dazser
+          repo: database
+
+      - name: Trigger Release workflow
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: release
